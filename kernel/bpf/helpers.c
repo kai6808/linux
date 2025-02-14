@@ -26,6 +26,94 @@
 
 #include "../../lib/kstrtox.h"
 
+#include <linux/mm.h>
+#include <linux/mm_inline.h>
+#include <linux/mm_types.h>
+#include <linux/page-flags.h>
+#include <linux/swap.h>
+#include <linux/pagemap.h>
+
+BPF_CALL_2(bpf_vpn_to_folio, u64, vpn, struct mm_struct *, mm)
+{
+    struct page *page;
+    struct folio *folio;
+    unsigned long address = (unsigned long)vpn << PAGE_SHIFT;
+    int ret;
+
+    // Use get_user_pages_fast to resolve the VPN to a page
+    ret = get_user_pages_fast(address, 1, FOLL_GET, &page);
+    if (ret <= 0)
+        return 0; // Invalid VPN or page not present
+
+    // Convert the page to a folio
+    folio = page_folio(page);
+
+    // Release the reference to the page (since folio retains it)
+    put_page(page);
+
+    return (u64)folio;
+}
+
+static const struct bpf_func_proto bpf_vpn_to_folio_proto = {
+    .func = bpf_vpn_to_folio,
+    .gpl_only = true,
+    .ret_type = RET_PTR_TO_FOLIO,
+    .arg1_type = ARG_ANYTHING, // VPN
+    .arg2_type = ARG_PTR_TO_MM, // mm_struct
+};
+
+
+BPF_CALL_2(bpf_folio_in_lruvec, struct folio *, folio, struct lruvec *, lruvec)
+{
+    return (u64)(folio_lruvec(folio) == lruvec);
+}
+
+static const struct bpf_func_proto bpf_folio_in_lruvec_proto = {
+    .func = bpf_folio_in_lruvec,
+    .gpl_only = true,
+    .ret_type = RET_INTEGER,
+    .arg1_type = ARG_PTR_TO_FOLIO,
+    .arg2_type = ARG_PTR_TO_LRUVEC,
+};
+
+
+BPF_CALL_2(bpf_move_folio_to_inactive_tail, struct folio *, folio, struct lruvec *, lruvec)
+{
+    // Check if the folio is an anonymous page
+    if (!folio_test_anon(folio)) {
+        return -EINVAL; // Not an anonymous page, return an error
+    }
+
+    // Check if the folio is on the active anonymous LRU list
+    if (folio_lru_list(folio) == LRU_ACTIVE_ANON) {
+        // Remove the folio from the active anonymous LRU list
+        list_del(&folio->lru);
+        // Add the folio to the tail of the inactive anonymous LRU list
+        list_add_tail(&folio->lru, &lruvec->lists[LRU_INACTIVE_ANON]);
+        // Manually update the LRU flags
+        folio->flags &= ~PG_active; // Clear the active flag
+        folio->flags |= PG_lru;     // Set the LRU flag
+    } else if (folio_lru_list(folio) == LRU_INACTIVE_ANON) {
+        // If it's already on the inactive anonymous LRU list, move it to the tail
+        list_move_tail(&folio->lru, &lruvec->lists[LRU_INACTIVE_ANON]);
+    } else {
+        // If the folio is not on any LRU list, return an error
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
+static const struct bpf_func_proto bpf_move_folio_to_inactive_tail_proto = {
+    .func = bpf_move_folio_to_inactive_tail,
+    .gpl_only = true,
+    .ret_type = RET_INTEGER,
+    .arg1_type = ARG_PTR_TO_FOLIO,
+    .arg2_type = ARG_PTR_TO_LRUVEC,
+};
+
+
+
 /* If kernel subsystem is allowing eBPF programs to call this function,
  * inside its own verifier_ops->get_func_proto() callback it should return
  * bpf_map_lookup_elem_proto, so that verifier can properly check the arguments
@@ -1940,6 +2028,12 @@ bpf_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
 		return &bpf_get_current_pid_tgid_proto;
 	case BPF_FUNC_get_ns_current_pid_tgid:
 		return &bpf_get_ns_current_pid_tgid_proto;
+	case BPF_FUNC_vpn_to_folio:
+		return &bpf_vpn_to_folio_proto;
+	case BPF_FUNC_folio_in_lruvec:
+		return &bpf_folio_in_lruvec_proto;
+	case BPF_FUNC_move_folio_to_inactive_tail:
+		return &bpf_move_folio_to_inactive_tail_proto;
 	default:
 		break;
 	}

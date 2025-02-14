@@ -1124,6 +1124,11 @@ enum bpf_attach_type {
 
 #define MAX_BPF_ATTACH_TYPE __MAX_BPF_ATTACH_TYPE
 
+extern u64 bpf_vpn_to_folio(u64 vpn, struct mm_struct *mm);
+extern u64 bpf_folio_in_lruvec(struct folio *folio, struct lruvec *lruvec);
+extern u64 bpf_move_folio_to_inactive_tail(struct folio *folio, struct lruvec *lruvec);
+
+
 /* Add BPF_LINK_TYPE(type, name) in bpf_types.h to keep bpf_link_type_strs[]
  * in sync with the definitions below.
  */
