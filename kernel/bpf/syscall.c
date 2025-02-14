@@ -6148,4 +6148,29 @@ static int __init bpf_syscall_sysctl_init(void)
 	return 0;
 }
 late_initcall(bpf_syscall_sysctl_init);
+
+
+static int bpf_lru_hook_attach(struct bpf_prog *prog)
+{
+    // store the BPF program in a global or per-CPU variable
+    rcu_assign_pointer(lru_hook_prog, prog);
+    return 0;
+}
+
+static const struct bpf_prog_ops lru_hook_ops = {
+    .attach = bpf_lru_hook_attach,
+};
+
+static struct bpf_prog_type_list lru_hook_tl = {
+    .ops = &lru_hook_ops,
+    .type = BPF_PROG_TYPE_LRU_HOOK,
+};
+
+static int __init register_lru_hook(void)
+{
+    bpf_register_prog_type(&lru_hook_tl);
+    return 0;
+}
+late_initcall(register_lru_hook);
+
 #endif /* CONFIG_SYSCTL */

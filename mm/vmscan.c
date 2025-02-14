@@ -71,6 +71,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/vmscan.h>
 
+static struct bpf_prog __rcu *lru_hook_prog;
+
 struct scan_control {
 	/* How many pages shrink_list() should reclaim */
 	unsigned long nr_to_reclaim;
@@ -5688,6 +5690,17 @@ static void lru_gen_shrink_node(struct pglist_data *pgdat, struct scan_control *
 
 #endif /* CONFIG_LRU_GEN */
 
+static void run_lru_hook(struct lruvec *lruvec)
+{
+    struct bpf_prog *prog;
+    rcu_read_lock();
+    prog = rcu_dereference(lru_hook_prog); // retrieve the BPF program
+    if (prog) {
+        BPF_PROG_RUN(prog, lruvec); // pass the lruvec to the BPF program
+    }
+    rcu_read_unlock();
+}
+
 static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
 {
 	unsigned long nr[NR_LRU_LISTS];
@@ -5724,6 +5737,7 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
 				sc->priority == DEF_PRIORITY);
 
 	blk_start_plug(&plug);
+	run_lru_hook(lruvec);
 	while (nr[LRU_INACTIVE_ANON] || nr[LRU_ACTIVE_FILE] ||
 					nr[LRU_INACTIVE_FILE]) {
 		unsigned long nr_anon, nr_file, percentage;
