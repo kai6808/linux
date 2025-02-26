@@ -4256,11 +4256,14 @@ static int bpf_prog_attach(const union bpf_attr *attr)
 		else
 			ret = netkit_prog_attach(attr, prog);
 		break;
-	case BPF_LRU_RECLAIM:
-		ret = bpf_lru_prog_attach(prog);
-		break;
 	default:
 		ret = -EINVAL;
+	}
+
+	switch (attr->attach_type) {
+		case BPF_LRU_RECLAIM:
+            ret = bpf_lru_prog_attach(prog);
+            break;
 	}
 
 	if (ret)
@@ -4324,12 +4327,14 @@ static int bpf_prog_detach(const union bpf_attr *attr)
 		else
 			ret = netkit_prog_detach(attr, prog);
 		break;
-	case BPF_LRU_RECLAIM:
-		bpf_lru_prog_detach();
-		ret = 0;
-		break;
 	default:
 		ret = -EINVAL;
+	}
+
+	switch (attr->attach_type) {
+		case BPF_LRU_RECLAIM:
+            bpf_lru_prog_detach();
+            break;
 	}
 
 	if (prog)

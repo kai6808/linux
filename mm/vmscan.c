@@ -5708,7 +5708,7 @@ static void trigger_lru_hook(struct lruvec *lruvec, struct scan_control *sc)
 	ctx.nr_to_scan = sc->nr_to_reclaim;
 	ctx.priority = sc->priority;
 
-	BPF_PROG_RUN(prog, &ctx);
+	BPF_PROG_RUN(prog, (void*)&ctx);
 }
 
 int bpf_lru_prog_attach(struct bpf_prog *prog)
