@@ -43,6 +43,13 @@
 
 #include <linux/mm_bpf.h>
 
+
+static int generic_test_run(struct bpf_prog *prog, const union bpf_attr *kattr,
+                          union bpf_attr __user *uattr)
+{
+    return -ENOTSUPP;
+}
+
 const struct bpf_prog_ops lru_reclaim_prog_ops = {
 	.test_run = generic_test_run,
 };

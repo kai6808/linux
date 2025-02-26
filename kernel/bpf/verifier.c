@@ -32,10 +32,6 @@
 #include <linux/kallsyms.h>
 #include <linux/mm_bpf.h>
 
-const struct bpf_prog_type_list prog_type_lru_reclaim __section(".bpf_prog_types") = {
-	.type = BPF_PROG_TYPE_LRU_RECLAIM,
-	.ops = &lru_reclaim_prog_ops,
-};
 
 #include "disasm.h"
 

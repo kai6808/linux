@@ -69,6 +69,7 @@
 #include "swap.h"
 
 #include <uapi/linux/bpf.h>
+#include <linux/mm_bpf.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/vmscan.h>
