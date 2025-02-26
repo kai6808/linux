@@ -41,6 +41,12 @@
 #include <net/netkit.h>
 #include <net/tcx.h>
 
+#include <linux/mm_bpf.h>
+
+const struct bpf_prog_ops lru_reclaim_prog_ops = {
+	.test_run = generic_test_run,
+};
+
 #define IS_FD_ARRAY(map) ((map)->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_CGROUP_ARRAY || \
 			  (map)->map_type == BPF_MAP_TYPE_ARRAY_OF_MAPS)
@@ -2675,6 +2681,12 @@ bpf_prog_load_check_attach(enum bpf_prog_type prog_type,
 		if (expected_attach_type)
 			return -EINVAL;
 		fallthrough;
+	case BPF_PROG_TYPE_LRU_RECLAIM:
+	prog->aux->ops = &lru_reclaim_prog_ops;
+		prog->aux->max_ctx_offset = offsetof(struct bpf_lru_hook_ctx, priority) +
+			sizeof_field(struct bpf_lru_hook_ctx, priority);
+		prog->aux->max_access_ctx_off = prog->aux->max_ctx_offset;
+		break;
 	default:
 		return 0;
 	}
@@ -4237,6 +4249,9 @@ static int bpf_prog_attach(const union bpf_attr *attr)
 		else
 			ret = netkit_prog_attach(attr, prog);
 		break;
+	case BPF_LRU_RECLAIM:
+		ret = bpf_lru_prog_attach(prog);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -4301,6 +4316,9 @@ static int bpf_prog_detach(const union bpf_attr *attr)
 			ret = tcx_prog_detach(attr, prog);
 		else
 			ret = netkit_prog_detach(attr, prog);
+		break;
+	case BPF_LRU_RECLAIM:
+		bpf_lru_prog_detach();
 		break;
 	default:
 		ret = -EINVAL;

@@ -1013,6 +1013,13 @@ enum bpf_map_type {
 	__MAX_BPF_MAP_TYPE
 };
 
+struct bpf_lru_hook_ctx {
+	unsigned long active_anon;
+	unsigned long inactive_anon;
+	unsigned long nr_to_scan;
+	int priority;
+};
+
 /* Note that tracing related programs such as
  * BPF_PROG_TYPE_{KPROBE,TRACEPOINT,PERF_EVENT,RAW_TRACEPOINT}
  * are not subject to a stable API since kernel internal data
@@ -1055,6 +1062,7 @@ enum bpf_prog_type {
 	BPF_PROG_TYPE_SK_LOOKUP,
 	BPF_PROG_TYPE_SYSCALL, /* a program that can execute syscalls */
 	BPF_PROG_TYPE_NETFILTER,
+	BPF_PROF_TYPE_LRU_RECLAIM,
 	__MAX_BPF_PROG_TYPE
 };
 
@@ -1117,6 +1125,7 @@ enum bpf_attach_type {
 	BPF_NETKIT_PEER,
 	BPF_TRACE_KPROBE_SESSION,
 	BPF_TRACE_UPROBE_SESSION,
+	BPF_LRU_RECLAIM,
 	__MAX_BPF_ATTACH_TYPE
 };
 

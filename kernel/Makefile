@@ -159,3 +159,6 @@ $(obj)/kheaders_data.tar.xz: FORCE
 	$(call cmd,genikh)
 
 clean-files := kheaders_data.tar.xz kheaders.md5
+
+# If adding mm_bpf.c as a new file
+obj-$(CONFIG_BPF) += bpf/mm_bpf.o

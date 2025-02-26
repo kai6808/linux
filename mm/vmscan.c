@@ -5688,7 +5688,54 @@ static void lru_gen_shrink_node(struct pglist_data *pgdat, struct scan_control *
 
 #endif /* CONFIG_LRU_GEN */
 
-static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
+struct bpf_lru_hook_ctx {
+	unsigned long active_anon;
+	unsigned long inactive_anon;
+	unsigned long nr_to_scan;
+	int priority;
+};
+
+static struct bpf_prog __rcu *lru_hook_prog;
+
+static void trigger_lru_hook(struct lruvec *lruvec, struct scan_control *sc)
+{
+	struct bpf_lru_hook_ctx ctx = {};
+	struct bpf_prog *prog;
+
+	prog = rcu_dereference(lru_hook_prog);
+	if (!prog)
+		return;
+
+	ctx.active_anon = lruvec_page_state(lruvec, NR_ACTIVE_ANON);
+	ctx.inactive_anon = lruvec_page_state(lruvec, NR_INACTIVE_ANON);
+	ctx.nr_to_scan = sc->nr_to_reclaim;
+	ctx.priority = sc->priority;
+
+	BPF_PROG_RUN(prog, &ctx);
+}
+
+int bpf_lru_prog_attach(struct bpf_prog *prog)
+{
+	struct bpf_prog *old_prog;
+
+	old_prog = rcu_replace_pointer(lru_hook_prog, prog, 1);
+	if (old_prog)
+		bpf_prog_put(old_prog);
+
+	return 0;
+}
+
+void bpf_lru_prog_detach(void)
+{
+	struct bpf_prog *old_prog;
+
+	old_prog = rcu_replace_pointer(lru_hook_prog, NULL, 1);
+	if (old_prog)
+		bpf_prog_put(old_prog);
+}
+
+static void
+shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
 {
 	unsigned long nr[NR_LRU_LISTS];
 	unsigned long targets[NR_LRU_LISTS];
@@ -5698,6 +5745,8 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
 	unsigned long nr_to_reclaim = sc->nr_to_reclaim;
 	bool proportional_reclaim;
 	struct blk_plug plug;
+
+	trigger_lru_hook(lruvec, sc);
 
 	if (lru_gen_enabled() && !root_reclaim(sc)) {
 		lru_gen_shrink_lruvec(lruvec, sc);
