@@ -2682,7 +2682,7 @@ bpf_prog_load_check_attach(enum bpf_prog_type prog_type,
 			return -EINVAL;
 		fallthrough;
 	case BPF_PROG_TYPE_LRU_RECLAIM:
-	prog->aux->ops = &lru_reclaim_prog_ops;
+		prog->aux->ops = &lru_reclaim_prog_ops;
 		prog->aux->max_ctx_offset = offsetof(struct bpf_lru_hook_ctx, priority) +
 			sizeof_field(struct bpf_lru_hook_ctx, priority);
 		prog->aux->max_access_ctx_off = prog->aux->max_ctx_offset;
@@ -4319,6 +4319,7 @@ static int bpf_prog_detach(const union bpf_attr *attr)
 		break;
 	case BPF_LRU_RECLAIM:
 		bpf_lru_prog_detach();
+		ret = 0;
 		break;
 	default:
 		ret = -EINVAL;

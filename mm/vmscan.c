@@ -68,6 +68,8 @@
 #include "internal.h"
 #include "swap.h"
 
+#include <uapi/linux/bpf.h>
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/vmscan.h>
 
@@ -5688,12 +5690,6 @@ static void lru_gen_shrink_node(struct pglist_data *pgdat, struct scan_control *
 
 #endif /* CONFIG_LRU_GEN */
 
-struct bpf_lru_hook_ctx {
-	unsigned long active_anon;
-	unsigned long inactive_anon;
-	unsigned long nr_to_scan;
-	int priority;
-};
 
 static struct bpf_prog __rcu *lru_hook_prog;
 
