@@ -1017,7 +1017,6 @@ struct bpf_lru_hook_ctx {
 	unsigned long active_anon;
 	unsigned long inactive_anon;
 	unsigned long nr_to_scan;
-	int priority;
 };
 
 /* Note that tracing related programs such as

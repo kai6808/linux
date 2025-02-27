@@ -5708,7 +5708,6 @@ static void trigger_lru_hook(struct lruvec *lruvec, struct scan_control *sc)
 	ctx.active_anon = lruvec_page_state(lruvec, NR_ACTIVE_ANON);
 	ctx.inactive_anon = lruvec_page_state(lruvec, NR_INACTIVE_ANON);
 	ctx.nr_to_scan = sc->nr_to_reclaim;
-	ctx.priority = sc->priority;
 
 	BPF_PROG_RUN(prog, (void*)&ctx);
 }
@@ -5718,6 +5717,7 @@ int bpf_lru_prog_attach(struct bpf_prog *prog)
 	struct bpf_prog *old_prog;
 
 	old_prog = rcu_replace_pointer(lru_hook_prog, prog, 1);
+	synchronize_rcu();
 	if (old_prog)
 		bpf_prog_put(old_prog);
 
@@ -5745,7 +5745,6 @@ shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
 	bool proportional_reclaim;
 	struct blk_plug plug;
 
-	trigger_lru_hook(lruvec, sc);
 
 	if (lru_gen_enabled() && !root_reclaim(sc)) {
 		lru_gen_shrink_lruvec(lruvec, sc);
@@ -5772,6 +5771,8 @@ shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
 				sc->priority == DEF_PRIORITY);
 
 	blk_start_plug(&plug);
+	if (!sc || !lruvec)
+		trigger_lru_hook(lruvec, sc);
 	while (nr[LRU_INACTIVE_ANON] || nr[LRU_ACTIVE_FILE] ||
 					nr[LRU_INACTIVE_FILE]) {
 		unsigned long nr_anon, nr_file, percentage;
