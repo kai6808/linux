@@ -31,7 +31,7 @@
 #include <linux/trace_events.h>
 #include <linux/kallsyms.h>
 #include <linux/mm_bpf.h>
-
+#include <linux/bpf_types.h>
 
 #include "disasm.h"
 
@@ -46,11 +46,16 @@ static const struct bpf_verifier_ops * const bpf_verifier_ops[] = {
 #undef BPF_LINK_TYPE
 };
 
-static const struct bpf_prog_type_list prog_type_lru_reclaim = {
-    .type = BPF_PROG_TYPE_LRU_RECLAIM,
-    .ops = &lru_reclaim_prog_ops,
+BTF_SET_START(bpf_prog_types)
+BTF_ID(struct, bpf_prog_type_lru_reclaim)
+BTF_SET_END(bpf_prog_types)
+
+const struct bpf_prog_ops lru_reclaim_prog_ops = {
+    .test_run = generic_test_run,
 };
-__bpf_register_prog_type(&prog_type_lru_reclaim);
+
+BTF_REGISTER_PROG_TYPE(BPF_PROG_TYPE_LRU_RECLAIM, lru_reclaim,
+                      &lru_reclaim_prog_ops);
 
 struct bpf_mem_alloc bpf_global_percpu_ma;
 static bool bpf_global_percpu_ma_set;
