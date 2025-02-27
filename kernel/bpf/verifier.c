@@ -46,10 +46,6 @@ static const struct bpf_verifier_ops * const bpf_verifier_ops[] = {
 #undef BPF_LINK_TYPE
 };
 
-const struct bpf_prog_type_list prog_type_lru_reclaim __section(".bpf_prog_types") = {
-    .type = BPF_PROG_TYPE_LRU_RECLAIM,
-    .ops = &lru_reclaim_prog_ops,
-};
 
 struct bpf_mem_alloc bpf_global_percpu_ma;
 static bool bpf_global_percpu_ma_set;
