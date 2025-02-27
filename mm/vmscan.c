@@ -5692,7 +5692,8 @@ static void lru_gen_shrink_node(struct pglist_data *pgdat, struct scan_control *
 #endif /* CONFIG_LRU_GEN */
 
 #define BPF_PROG_RUN(prog, ctx) ({ \
-	typeof(prog->bpf_func)(*(prog)->bpf_func)(ctx); \
+    typeof((prog)->bpf_func) _prog_func = (prog)->bpf_func; \
+    _prog_func(ctx); \
 })
 
 static struct bpf_prog __rcu *lru_hook_prog;
