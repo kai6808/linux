@@ -70,6 +70,7 @@
 
 #include <uapi/linux/bpf.h>
 #include <linux/mm_bpf.h>
+#include <linux/filter.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/vmscan.h>
@@ -5691,10 +5692,7 @@ static void lru_gen_shrink_node(struct pglist_data *pgdat, struct scan_control *
 
 #endif /* CONFIG_LRU_GEN */
 
-#define BPF_PROG_RUN(prog, ctx) ({ \
-    typeof((prog)->bpf_func) _prog_func = (prog)->bpf_func; \
-    _prog_func(ctx); \
-})
+#define BPF_PROG_RUN(prog, ctx) bpf_prog_run(prog, ctx)
 
 static struct bpf_prog __rcu *lru_hook_prog;
 
