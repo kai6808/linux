@@ -23,6 +23,8 @@
 #include <linux/btf_ids.h>
 #include <linux/bpf_mem_alloc.h>
 #include <linux/kasan.h>
+#include <linux/mm.h>
+#include <linux/memcontrol.h>
 
 #include "../../lib/kstrtox.h"
 
@@ -35,6 +37,53 @@
  * if program is allowed to access maps, so check rcu_read_lock_held() or
  * rcu_read_lock_trace_held() in all three functions.
  */
+
+BPF_CALL_1(bpf_move_pfn_to_inactive_tail, u64, pfn)
+{
+    struct folio *folio;
+    struct lruvec *lruvec;
+    unsigned long flags;
+    int ret = -EINVAL;
+
+    // translate pfn to folio
+    folio = pfn_to_folio(pfn);
+    if (!folio)
+        return -EINVAL;
+
+    // get lruvec from folio
+    lruvec = folio_lruvec(folio); 
+    if (!lruvec)
+        return -EINVAL;
+
+    // check if folio is anonymous
+    if (!folio_test_anon(folio))
+        return -EINVAL;
+
+    // hold lock to operate LRU list
+    spin_lock_irqsave(&lruvec->lru_lock, flags);
+
+    if (folio_lru_list(folio) == LRU_ACTIVE_ANON) {
+        list_del(&folio->lru);
+        list_add_tail(&folio->lru, &lruvec->lists[LRU_INACTIVE_ANON]);
+        __folio_clear_active(folio);
+        __folio_set_lru(folio);
+        ret = 0;
+    } else if (folio_lru_list(folio) == LRU_INACTIVE_ANON) {
+        list_move_tail(&folio->lru, &lruvec->lists[LRU_INACTIVE_ANON]);
+        ret = 0;
+    }
+
+    spin_unlock_irqrestore(&lruvec->lru_lock, flags);
+    return ret;
+}
+
+const struct bpf_func_proto bpf_move_pfn_to_inactive_tail_proto = {
+    .func           = bpf_move_pfn_to_inactive_tail,
+    .gpl_only       = true,
+    .ret_type       = RET_INTEGER,
+    .arg1_type      = ARG_ANYTHING,
+};
+
 BPF_CALL_2(bpf_map_lookup_elem, struct bpf_map *, map, void *, key)
 {
 	WARN_ON_ONCE(!rcu_read_lock_held() && !rcu_read_lock_trace_held() &&

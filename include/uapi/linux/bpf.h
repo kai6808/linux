@@ -6009,7 +6009,10 @@ union bpf_attr {
 	FN(user_ringbuf_drain, 209, ##ctx)		\
 	FN(cgrp_storage_get, 210, ##ctx)		\
 	FN(cgrp_storage_delete, 211, ##ctx)		\
+	FN(move_pfn_to_inactive_tail, 212, ##ctx)	\
 	/* */
+
+extern struct bpf_func_proto bpf_move_pfn_to_inactive_tail_proto;
 
 /* backwards-compatibility macros for users of __BPF_FUNC_MAPPER that don't
  * know or care about integer value that is now passed as second argument
