@@ -54,8 +54,7 @@ const struct bpf_prog_ops lru_reclaim_prog_ops = {
     .test_run = generic_test_run,
 };
 
-BTF_REGISTER_PROG_TYPE(BPF_PROG_TYPE_LRU_RECLAIM, lru_reclaim,
-                      &lru_reclaim_prog_ops);
+BTF_REGISTER_PROG_TYPE(BPF_PROG_TYPE_LRU_RECLAIM, struct bpf_lru_hook_ctx, &lru_reclaim_prog_ops);
 
 struct bpf_mem_alloc bpf_global_percpu_ma;
 static bool bpf_global_percpu_ma_set;
