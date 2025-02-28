@@ -1,19 +1,20 @@
+#include <stddef.h>
 #include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
 #include <linux/types.h>
-#include <uapi/linux/bpf.h>
 
 // shared bpf map (user program writes pfn)
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
-    __uint(key_size, sizeof(u32));
-    __uint(value_size, sizeof(u64));
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u64));
     __uint(max_entries, 1);
 } pfn_map SEC(".maps");
 
 SEC("kprobe/__x64_sys_nanosleep")
 int bpf_prog(struct pt_regs *ctx) {
-    u32 key = 0;
-    u64 *pfn = bpf_map_lookup_elem(&pfn_map, &key);
+    __u32 key = 0;
+    __u64 *pfn = bpf_map_lookup_elem(&pfn_map, &key);
     if (!pfn) {
         return 0;
     }
