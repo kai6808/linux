@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Path to your kernel source
+KERNEL_SRC="/users/kaishen/linux"
+
 # Directory for BPF filesystem
 BPF_FS="/sys/fs/bpf"
 
@@ -10,11 +13,16 @@ if ! mount | grep -q "bpf on $BPF_FS type bpf"; then
     sudo mount -t bpf bpf $BPF_FS
 fi
 
-# Compile BPF program using the standard userspace headers
+# Compile BPF program using your kernel source headers
 echo "Compiling BPF program..."
 clang -O2 -g -target bpf -D__TARGET_ARCH_x86_64 \
-    -I/usr/include/bpf \
-    -I/usr/include \
+    -I$KERNEL_SRC/include \
+    -I$KERNEL_SRC/arch/x86/include \
+    -I$KERNEL_SRC/arch/x86/include/generated \
+    -I$KERNEL_SRC/include/uapi \
+    -I$KERNEL_SRC/arch/x86/include/uapi \
+    -I$KERNEL_SRC/arch/x86/include/generated/uapi \
+    -I$KERNEL_SRC/include/generated/uapi \
     -c test_bpf.c -o test_bpf.o
 
 # Create and pin the map
