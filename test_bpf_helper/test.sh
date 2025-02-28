@@ -10,6 +10,8 @@ clang -target bpf -O2 -Wall \
   -I${KERNEL_SRC}/include/uapi \
   -I${KERNEL_SRC}/arch/x86/include \
   -I${KERNEL_SRC}/arch/x86/include/uapi \
+  -I${KERNEL_SRC}/arch/x86/include/generated/uapi \
+  -I${KERNEL_SRC}/include/generated/uapi \
   -c test_bpf.c -o test_bpf.o
 
 # create and pin bpf map (need to be created before user program access)
