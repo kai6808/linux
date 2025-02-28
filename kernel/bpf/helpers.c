@@ -25,6 +25,7 @@
 #include <linux/kasan.h>
 #include <linux/mm.h>
 #include <linux/memcontrol.h>
+#include <linux/swap.h>
 #include <linux/mm_inline.h>
 
 #include "../../lib/kstrtox.h"
@@ -48,7 +49,7 @@ BPF_CALL_1(bpf_move_pfn_to_inactive_tail, u64, pfn)
 
     // translate pfn to folio
     folio = pfn_folio(pfn);
-    if (!folio)
+    if (!folio || !folio_test_lru(folio))
         return -EINVAL;
 
     // get lruvec from folio
@@ -67,7 +68,7 @@ BPF_CALL_1(bpf_move_pfn_to_inactive_tail, u64, pfn)
         lruvec_del_folio(lruvec, folio);
         folio_clear_active(folio);
         lruvec_add_folio(lruvec, folio);
-    } else if (lru_gen_enabled() ? folio_evictable(folio) : folio_is_anon_lru(folio)) {
+    } else if (folio_test_anon(folio) && !folio_test_active(folio)) {
         list_move_tail(&folio->lru, &lruvec->lists[LRU_INACTIVE_ANON]);
         ret = 0;
     }
