@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 
-# Path to your kernel source
-KERNEL_SRC="/users/kaishen/linux"
-
 # Directory for BPF filesystem
 BPF_FS="/sys/fs/bpf"
 
@@ -13,20 +10,51 @@ if ! mount | grep -q "bpf on $BPF_FS type bpf"; then
     sudo mount -t bpf bpf $BPF_FS
 fi
 
-# Compile BPF program using your kernel source headers
+# Simplify the BPF program to avoid kernel header issues
+echo "Creating simplified BPF program..."
+cat > simple_bpf.c << 'EOF'
+// SPDX-License-Identifier: GPL-2.0
+#include <stddef.h>
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
+
+// Define the helper function prototype
+static long (*bpf_move_pfn_to_inactive_tail)(unsigned long pfn) = (void *) 212; // actual helper ID is 212
+
+// shared bpf map (user program writes pfn)
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u64));
+    __uint(max_entries, 1);
+} pfn_map SEC(".maps");
+
+SEC("kprobe/__x64_sys_nanosleep")
+int bpf_prog(struct pt_regs *ctx) {
+    __u32 key = 0;
+    __u64 *pfn = bpf_map_lookup_elem(&pfn_map, &key);
+    if (!pfn) {
+        return 0;
+    }
+
+    // call helper to move page
+    int ret = bpf_move_pfn_to_inactive_tail(*pfn);
+    bpf_printk("Moved PFN %llu, ret=%d\n", *pfn, ret);
+    return 0;
+}
+
+char _license[] SEC("license") = "GPL";
+EOF
+
+# Compile BPF program using libbpf headers
 echo "Compiling BPF program..."
-clang -O2 -g -target bpf -D__TARGET_ARCH_x86_64 \
-    -I$KERNEL_SRC/include \
-    -I$KERNEL_SRC/arch/x86/include \
-    -I$KERNEL_SRC/arch/x86/include/generated \
-    -I$KERNEL_SRC/include/uapi \
-    -I$KERNEL_SRC/arch/x86/include/uapi \
-    -I$KERNEL_SRC/arch/x86/include/generated/uapi \
-    -I$KERNEL_SRC/include/generated/uapi \
-    -c test_bpf.c -o test_bpf.o
+clang -O2 -g -target bpf \
+    -I/usr/include/bpf \
+    -c simple_bpf.c -o test_bpf.o
 
 # Create and pin the map
 echo "Creating map..."
+sudo rm -f $BPF_FS/pfn_map
 sudo bpftool map create $BPF_FS/pfn_map type array key 4 value 8 entries 1 name pfn_map
 
 # Load the BPF program
